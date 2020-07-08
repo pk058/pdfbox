@@ -15,7 +15,8 @@ import 'package:pdfbox/screens/Photography.dart';
 import 'package:pdfbox/screens/Signup.dart';
 import 'package:pdfbox/screens/wrapper.dart';
 import 'package:provider/provider.dart';
-//This is pdfbox
+
+//This is pdfbox. Nice project!
 void main() {
   runApp(MyApp());
 }
@@ -37,10 +38,10 @@ class MyApp extends StatelessWidget {
         initialRoute: '/',
         routes: {
           '/': (context) => Wrapper(),
-          '/Welcome': (context)=> WelCome(),
+          '/Welcome': (context) => WelCome(),
           '/Signup': (context) => SignupUser(),
           '/Login': (context) => LoginUser(),
-          '/MainDrawer': (context)=> MainDrawer(),
+          '/MainDrawer': (context) => MainDrawer(),
           '/HomeScreen': (context) => HomeScreen(),
           '/DesignThinking': (context) => DesignThinking(),
           '/Marketing': (context) => Marketing(),
@@ -52,5 +53,6 @@ class MyApp extends StatelessWidget {
     );
   }
 }
+
 
 //Ending
