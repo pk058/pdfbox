@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "791335924269",
+    "firebase_url": "https://pdfbox-9a56d.firebaseio.com",
+    "project_id": "pdfbox-9a56d",
+    "storage_bucket": "pdfbox-9a56d.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:791335924269:android:ed7ffc1efbda12aacd3ea4",
+        "android_client_info": {
+          "package_name": "com.kumarprabhat.pdfbox"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "791335924269-ld4giq98jk7rctth28uv0fu1fgcggsen.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.kumarprabhat.pdfbox",
+            "certificate_hash": "2ce86ce1ed347f5c70b49d37f9f8f00823aa1229"
+          }
+        },
+        {
+          "client_id": "791335924269-nmrm2rtush8j31hisgsbkhfk8r7h5s8a.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAArcSW0RGwibK5giHcavVYAdO4We_GFno"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "791335924269-nmrm2rtush8j31hisgsbkhfk8r7h5s8a.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
