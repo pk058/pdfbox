@@ -1,11 +1,126 @@
+import 'dart:io';
+import 'package:path/path.dart' as path;
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:pdfbox/constants.dart';
-import 'package:pdfbox/fbStorage.dart';
 
-class Marketing extends StatelessWidget {
-  final StorageServices _stg = StorageServices();
+class Marketing extends StatefulWidget {
+  @override
+  _MarketingState createState() => _MarketingState();
+}
+
+class _MarketingState extends State<Marketing> {
+
+  File _image;
+  String imageName;
+  bool isLoading = false;
+  TextEditingController _nameController = TextEditingController();
+
+  Future getImage() async {
+    var image = await ImagePicker().getImage(source: ImageSource.gallery);
+    setState(() {
+      _image = File(image.path);
+    });
+    createAlterDialog(context);
+    UploadtoStorage();
+  }
+
+
+
+  Future UploadtoStorage() async {
+    setState(() {
+      this.isLoading = true;
+    });
+    if (_image != null) {
+      StorageReference ref = FirebaseStorage.instance.ref();
+      StorageTaskSnapshot addImg =
+      await ref.child("image/$imageName").putFile(_image).onComplete;
+      if (addImg.error == null) {
+        print("added to Firebase Storage");
+      }
+      if (addImg.error == null) {
+        final String downloadUrl =
+        await addImg.ref.getDownloadURL();
+        await Firestore.instance
+            .collection("images")
+            .add({"url": downloadUrl, "name": imageName});
+        setState(() {
+          isLoading = false;
+        });
+      } else {
+        print(
+            'Error from image repo ${addImg.error.toString()}');
+        throw ('This file is not an image');
+      }
+    }
+  }
+
+  Widget Listbulider(){
+    return Expanded(
+        child: StreamBuilder(
+            stream: Firestore.instance.collection('images').snapshots(),
+            builder: (BuildContext context, AsyncSnapshot<QuerySnapshot> querySnapshot){
+              if(querySnapshot.hasError){
+                return Text("Some Error");
+              } else{
+                final list = querySnapshot.data.documents;
+                return ListView.builder(
+                  itemBuilder: (context, index){
+                    return Column(
+                      children: <Widget>[
+                        ListTile(
+                      title: Text(list[index]['name']),
+                          subtitle: Text(index.toString()),
+                        ),
+                    Divider()
+                      ],
+                    );
+                  },
+                  itemCount: list.length,
+                );
+              }
+            }
+        )
+    );
+  }
+  createAlterDialog(BuildContext context){
+    return showDialog(context: context, builder: (context){
+      return AlertDialog(
+        title: Text('File Name'),
+        content: TextField(
+          cursorColor: kPinkColor,
+          decoration: InputDecoration(
+              focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(50)),
+                  borderSide: BorderSide(color: kPinkColor)
+              ),
+              prefixIcon: Icon(Icons.create_new_folder),
+              enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(50)),
+                  borderSide: BorderSide(color: kPinkColor)
+              ),
+              labelText: 'Name', labelStyle: TextStyle(color: Colors.grey)),
+          controller: _nameController,
+        ),
+        actions: <Widget>[
+          MaterialButton(
+            elevation: 0.0,
+            color: kPinkColor,
+            child: Text('Submit'),
+            onPressed: (){
+              imageName = _nameController.text;
+              Navigator.pop(context);
+            },
+          )
+        ],
+      );
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -74,79 +189,84 @@ class Marketing extends StatelessWidget {
                       child: Container(
                         width: double.infinity,
                         decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(50),
-                          color: Colors.white
+                            borderRadius: BorderRadius.circular(50),
+                            color: Colors.white
                         ),
-                        child: Column(
+                        child: Stack(
                           children: <Widget>[
-
+                            Padding(
+                              padding: EdgeInsets.all(30),
+                              child: Listbulider(),
 //                              child: Column(
 //                                crossAxisAlignment: CrossAxisAlignment.start,
 //                                children: <Widget>[
 //                                  Text('Course Content', style: kTitleTextStyle),
 //                                  SizedBox(height: 30,),
 //                                  CourseContent(number: '01',
-//                                    duration: 5.35,
-//                                    title: "Welcome to the Course", isDone: true),
+//                                      duration: 5.35,
+//                                      title: "Welcome to the Course", isDone: true),
 //                                  CourseContent(number: '02',
 //                                      duration: 10.35,
-//                                      title: "Digital Marketing - Intro", isDone: true),
+//                                      title: "Photography - Intro", isDone: true),
 //                                  CourseContent(number: '03',
 //                                      duration: 11.00,
-//                                      title: 'Online Promotions', isDone: false),
+//                                      title: 'PRO Methods', isDone: false),
 //                                ],
-//
-                           Expanded(child: _stg.TileBuilder(),),
-                            Container(
-                              padding: EdgeInsets.all(20),
-                              height: 100,
-                              width: double.infinity,
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(40),
-                                boxShadow: [BoxShadow(offset: Offset(0,4),
-                                  blurRadius: 50,
-                                  color: kTextColor.withOpacity(0.1)
-                                )
-                                ],
-                              ),
-                              child: Row(
-                                children: <Widget>[
-                                  Container(
-                                    padding: EdgeInsets.all(14),
-                                    height: 56,
-                                    width: 80,
-                                    decoration: BoxDecoration(
-                                      color: Color(0xFFFFEDEE),
-                                      borderRadius: BorderRadius.circular(40)
-                                    ),
-                                    child: SvgPicture.asset('assets/icons/shopping-bag.svg'),
-                                  ),
-                                  SizedBox(width: 20,),
-                                  Expanded(
-                                    child: Container(
+//                              )
+                            ),
+                            Positioned(
+                              left: 0,
+                              right: 0,
+                              bottom: 0,
+                              child: Container(
+                                padding: EdgeInsets.all(20),
+                                height: 100,
+                                width: double.infinity,
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(40),
+                                  boxShadow: [BoxShadow(offset: Offset(0,4),
+                                      blurRadius: 50,
+                                      color: kTextColor.withOpacity(0.1)
+                                  )
+                                  ],
+                                ),
+                                child: Row(
+                                  children: <Widget>[
+                                    Container(
+                                      padding: EdgeInsets.all(14),
                                       height: 56,
-                                      width: 160,
-                                      alignment: Alignment.center,
-                                      child: GestureDetector(
+                                      width: 80,
+                                      decoration: BoxDecoration(
+                                          color: Color(0xFFFFEDEE),
+                                          borderRadius: BorderRadius.circular(40)
+                                      ),
+                                      child: SvgPicture.asset('assets/icons/shopping-bag.svg'),
+                                    ),
+                                    SizedBox(width: 50,),
+                                    GestureDetector(
+                                      child: Container(
+                                        height: 56,
+                                        width: 160,
+                                        alignment: Alignment.center,
                                         child: Text("Add to Cart",
                                           style: kSubtitleTextSyule.copyWith(
                                               color: Colors.white,
-                                          fontWeight: FontWeight.bold),
+                                              fontWeight: FontWeight.bold),
                                         ),
-                                        onTap: (){
-                                          _stg.openFileExplorer();
-                                        },
+                                        decoration: BoxDecoration(
+                                          color: kBlueColor,
+                                          borderRadius: BorderRadius.circular(40),
+                                        ),
                                       ),
-                                      decoration: BoxDecoration(
-                                        color: kBlueColor,
-                                        borderRadius: BorderRadius.circular(40),
-                                      ),
-                                    ),
-                                  )
-                                ],
+                                      onTap: (){
+                                        getImage();
+                                      },
+                                    )
+                                  ],
+                                ),
                               ),
-                            ),
+                            )
                           ],
                         ),
                       ))
