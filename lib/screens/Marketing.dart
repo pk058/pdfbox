@@ -17,37 +17,57 @@ class _MarketingState extends State<Marketing> {
 
   File _image;
   String imageName;
+  String _extension;
   bool isLoading = false;
+  String url;
   TextEditingController _nameController = TextEditingController();
 
   Future getImage() async {
     var image = await ImagePicker().getImage(source: ImageSource.gallery);
     setState(() {
       _image = File(image.path);
+      _extension = path.basename(_image.path).split('.').last;
     });
-    createAlterDialog(context);
-    UploadtoStorage();
+    nameAlterDialog(context);
+    uploadtoStorage();
+  }
+
+  deleteItem(String name){
+    Firestore.instance
+        .collection("images")
+        .where("name", isEqualTo: name)
+        .getDocuments()
+        .then((res) {
+      res.documents.forEach((result) {
+        FirebaseStorage.instance
+            .getReferenceFromUrl(result.data["url"])
+            .then((res) {
+          res.delete().then((res) {
+            print("Deleted!");
+          });
+        });
+      });
+    });
   }
 
 
-
-  Future UploadtoStorage() async {
+  Future uploadtoStorage() async {
     setState(() {
       this.isLoading = true;
     });
     if (_image != null) {
       StorageReference ref = FirebaseStorage.instance.ref();
       StorageTaskSnapshot addImg =
-      await ref.child("image/$imageName").putFile(_image).onComplete;
+      await ref.child("image/$imageName.$_extension").putFile(_image).onComplete;
       if (addImg.error == null) {
         print("added to Firebase Storage");
       }
       if (addImg.error == null) {
-        final String downloadUrl =
+        url =
         await addImg.ref.getDownloadURL();
         await Firestore.instance
             .collection("images")
-            .add({"url": downloadUrl, "name": imageName});
+            .add({"url": url, "name": "$imageName.$_extension"});
         setState(() {
           isLoading = false;
         });
@@ -59,35 +79,41 @@ class _MarketingState extends State<Marketing> {
     }
   }
 
-  Widget Listbulider(){
-    return Expanded(
-        child: StreamBuilder(
-            stream: Firestore.instance.collection('images').snapshots(),
-            builder: (BuildContext context, AsyncSnapshot<QuerySnapshot> querySnapshot){
-              if(querySnapshot.hasError){
-                return Text("Some Error");
-              } else{
-                final list = querySnapshot.data.documents;
-                return ListView.builder(
-                  itemBuilder: (context, index){
-                    return Column(
-                      children: <Widget>[
-                        ListTile(
-                      title: Text(list[index]['name']),
-                          subtitle: Text(index.toString()),
-                        ),
-                    Divider()
-                      ],
-                    );
-                  },
-                  itemCount: list.length,
+
+  Widget listBulider(){
+    return StreamBuilder(
+        stream: Firestore.instance.collection('images').snapshots(),
+        builder: (BuildContext context, AsyncSnapshot<QuerySnapshot> querySnapshot){
+          if(querySnapshot.hasError){
+            return Text("Some Error");
+          } else{
+            final list = querySnapshot.data.documents;
+            return ListView.builder(
+              itemBuilder: (context, index){
+                return Column(
+                  children: <Widget>[
+                    ListTile(
+                      leading: Icon(Icons.insert_drive_file),
+                  title: Text(list[index]['name']),
+                      subtitle: Text(index.toString()),
+                      onTap: (){
+                        downloadAlterDialog(context);
+                      },
+                      onLongPress: (){
+                        deleteAlterDialog(context, list[index]['name'], querySnapshot, index);
+                      },
+                    ),
+                Divider()
+                  ],
                 );
-              }
-            }
-        )
+              },
+              itemCount: list.length,
+            );
+          }
+        }
     );
   }
-  createAlterDialog(BuildContext context){
+  nameAlterDialog(BuildContext context){
     return showDialog(context: context, builder: (context){
       return AlertDialog(
         title: Text('File Name'),
@@ -98,13 +124,13 @@ class _MarketingState extends State<Marketing> {
                   borderRadius: BorderRadius.all(Radius.circular(50)),
                   borderSide: BorderSide(color: kPinkColor)
               ),
-              prefixIcon: Icon(Icons.create_new_folder),
               enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.all(Radius.circular(50)),
                   borderSide: BorderSide(color: kPinkColor)
               ),
               labelText: 'Name', labelStyle: TextStyle(color: Colors.grey)),
           controller: _nameController,
+          textAlign: TextAlign.center,
         ),
         actions: <Widget>[
           MaterialButton(
@@ -112,7 +138,49 @@ class _MarketingState extends State<Marketing> {
             color: kPinkColor,
             child: Text('Submit'),
             onPressed: (){
-              imageName = _nameController.text;
+              setState(() {
+                imageName = _nameController.text;
+              });
+              Navigator.pop(context);
+              _nameController.text = '';
+            },
+          )
+        ],
+      );
+    });
+  }
+
+  deleteAlterDialog(BuildContext context, String name,
+      AsyncSnapshot<QuerySnapshot> querySnapshot, int index){
+    return showDialog(context: context, builder: (context){
+      return AlertDialog(
+        title: Text('Delete $imageName ?', style: TextStyle(color: Colors.red),),
+        actions: <Widget>[
+          MaterialButton(
+            color: kPinkColor,
+            child: Text('Confirm'),
+            onPressed: ()async{
+              Navigator.pop(context);
+              deleteItem(name);
+              await Firestore.instance.runTransaction((Transaction myTransaction) async {
+                await myTransaction.delete(querySnapshot.data.documents[index].reference);
+              });
+            },
+          )
+        ],
+      );
+    });
+  }
+
+  downloadAlterDialog(BuildContext context){
+    return showDialog(context: context, builder: (context){
+      return AlertDialog(
+        title: Text('DownLoad $imageName !', style: kTitleTextStyle),
+        actions: <Widget>[
+          MaterialButton(
+            color: kPinkColor,
+            child: Text('Confirm'),
+            onPressed: (){
               Navigator.pop(context);
             },
           )
@@ -127,9 +195,6 @@ class _MarketingState extends State<Marketing> {
       body: Container(
         decoration: BoxDecoration(
           color: Color(0xFFF3F3F3),
-//          image: DecorationImage(image: AssetImage('assets/images/marketing.png'),
-//          alignment: Alignment.topRight,
-//          )
         ),
         child: Padding(
           padding: EdgeInsets.only(left: 20, right: 20, top: 50),
@@ -186,90 +251,75 @@ class _MarketingState extends State<Marketing> {
                   ),
                   SizedBox(height: 60,),
                   Expanded(
-                      child: Container(
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(50),
-                            color: Colors.white
-                        ),
-                        child: Stack(
-                          children: <Widget>[
-                            Padding(
-                              padding: EdgeInsets.all(30),
-                              child: Listbulider(),
-//                              child: Column(
-//                                crossAxisAlignment: CrossAxisAlignment.start,
-//                                children: <Widget>[
-//                                  Text('Course Content', style: kTitleTextStyle),
-//                                  SizedBox(height: 30,),
-//                                  CourseContent(number: '01',
-//                                      duration: 5.35,
-//                                      title: "Welcome to the Course", isDone: true),
-//                                  CourseContent(number: '02',
-//                                      duration: 10.35,
-//                                      title: "Photography - Intro", isDone: true),
-//                                  CourseContent(number: '03',
-//                                      duration: 11.00,
-//                                      title: 'PRO Methods', isDone: false),
-//                                ],
-//                              )
-                            ),
-                            Positioned(
-                              left: 0,
-                              right: 0,
-                              bottom: 0,
-                              child: Container(
-                                padding: EdgeInsets.all(20),
-                                height: 100,
-                                width: double.infinity,
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(40),
-                                  boxShadow: [BoxShadow(offset: Offset(0,4),
-                                      blurRadius: 50,
-                                      color: kTextColor.withOpacity(0.1)
-                                  )
-                                  ],
-                                ),
-                                child: Row(
-                                  children: <Widget>[
-                                    Container(
-                                      padding: EdgeInsets.all(14),
-                                      height: 56,
-                                      width: 80,
-                                      decoration: BoxDecoration(
-                                          color: Color(0xFFFFEDEE),
-                                          borderRadius: BorderRadius.circular(40)
-                                      ),
-                                      child: SvgPicture.asset('assets/icons/shopping-bag.svg'),
-                                    ),
-                                    SizedBox(width: 50,),
-                                    GestureDetector(
-                                      child: Container(
-                                        height: 56,
-                                        width: 160,
-                                        alignment: Alignment.center,
-                                        child: Text("Add to Cart",
-                                          style: kSubtitleTextSyule.copyWith(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.bold),
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: kBlueColor,
-                                          borderRadius: BorderRadius.circular(40),
-                                        ),
-                                      ),
-                                      onTap: (){
-                                        getImage();
-                                      },
-                                    )
-                                  ],
-                                ),
+                    child: Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(50),
+                          color: Colors.white
+                      ),
+                      child: Stack(
+                        children: <Widget>[
+                          Padding(
+                            padding: EdgeInsets.all(30),
+                            child: listBulider(),
+                          ),
+                          Positioned(
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            child: Container(
+                              padding: EdgeInsets.all(20),
+                              height: 100,
+                              width: double.infinity,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(40),
+                                boxShadow: [BoxShadow(offset: Offset(0,4),
+                                    blurRadius: 50,
+                                    color: kTextColor.withOpacity(0.1)
+                                )
+                                ],
                               ),
-                            )
-                          ],
-                        ),
-                      ))
+                              child: Row(
+                                children: <Widget>[
+                                  Container(
+                                    padding: EdgeInsets.all(14),
+                                    height: 56,
+                                    width: 80,
+                                    decoration: BoxDecoration(
+                                        color: Color(0xFFFFEDEE),
+                                        borderRadius: BorderRadius.circular(40)
+                                    ),
+                                    child: SvgPicture.asset('assets/icons/shopping-bag.svg'),
+                                  ),
+                                  SizedBox(width: 50,),
+                                  GestureDetector(
+                                    child: Container(
+                                      height: 56,
+                                      width: 160,
+                                      alignment: Alignment.center,
+                                      child: Text("Add to pdfbox",
+                                        style: kSubtitleTextSyule.copyWith(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold),
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: kBlueColor,
+                                        borderRadius: BorderRadius.circular(40),
+                                      ),
+                                    ),
+                                    onTap: (){
+                                      getImage();
+                                    },
+                                  )
+                                ],
+                              ),
+                            ),
+                          )
+                        ],
+                      ),
+                    ),
+                  )
                 ],
               ),
             ],
@@ -279,59 +329,6 @@ class _MarketingState extends State<Marketing> {
     );
   }
 }
-
-//class CourseContent extends StatelessWidget {
-//  final String number;
-//  final double duration;
-//  final String title;
-//  final bool isDone;
-//  const CourseContent({
-//    Key key, this.number, this.duration, this.title, this.isDone = false,
-//  }) : super(key: key);
-//
-//  @override
-//  Widget build(BuildContext context) {
-//    return Padding(
-//      padding: const EdgeInsets.only(bottom: 30),
-//      child: Row(
-//        crossAxisAlignment: CrossAxisAlignment.start,
-//        children: <Widget>[
-//          Text(
-//            number, style: kHeadingextStyle.copyWith(
-//            color: kTextColor.withOpacity(0.15),
-//            fontSize: 32,
-//          ),
-//          ),
-//          SizedBox(width: 10,),
-//          RichText(
-//              text: TextSpan(
-//                children: [
-//                  TextSpan(
-//                      text: '$duration \n',
-//                      style: TextStyle(
-//                          color: kTextColor.withOpacity(0.5),
-//                      fontSize: 18,)),
-//                  TextSpan(text: title,
-//                  style: kSubtitleTextSyule.copyWith(
-//                    fontWeight: FontWeight.w400,
-//                    height: 1.5,
-//                  )),]
-//              )),
-//          Spacer(),
-//          Container(
-//            margin: EdgeInsets.only(left: 20),
-//            width: 35,
-//            height: 35,
-//            decoration: BoxDecoration(shape: BoxShape.circle,
-//            color: isDone ? kGreenColor: kGreenColor.withOpacity(0.5)),
-//            child: Icon(Icons.play_arrow, color: Colors.white,),
-//          )
-//        ],
-//      ),
-//    );
-//  }
-//}
-
 
 class BestSellerClipper extends CustomClipper<Path>{
   @override
