@@ -11,12 +11,12 @@ import 'package:pdfbox/constants.dart';
 import 'package:http/http.dart' as http;
 import 'package:pdfbox/screens/pdfviewer.dart';
 
-class Bussiness extends StatefulWidget {
+class Market extends StatefulWidget {
   @override
-  _BussinessState createState() => _BussinessState();
+  _MarketState createState() => _MarketState();
 }
 
-class _BussinessState extends State<Bussiness> {
+class _MarketState extends State<Market> {
 
   String imageName;
   String fileName;
@@ -27,8 +27,8 @@ class _BussinessState extends State<Bussiness> {
 
   void openFileExplorer() async {
     try {
-      _paths = await FilePicker.getMultiFilePath(type: FileType.custom,
-          allowedExtensions: ['pdf']);
+        _paths = await FilePicker.getMultiFilePath(type: FileType.custom,
+                allowedExtensions: ['pdf']);
     } on PlatformException catch (e) {
       print("Unsupported operation" + e.toString());
     }
@@ -36,22 +36,22 @@ class _BussinessState extends State<Bussiness> {
     uploadToFirebase();
   }
   uploadToFirebase() {
-    _paths.forEach((fileName, filePath) => {upload(fileName, filePath)});
+      _paths.forEach((fileName, filePath) => {upload(fileName, filePath)});
   }
 
   Future upload(fileName, filePath) async {
     if (File(filePath) != null) {
       StorageReference ref = FirebaseStorage.instance.ref();
       StorageTaskSnapshot addFile =
-      await ref.child("bussiness/$fileName").putFile(File(filePath)).onComplete;
+          await ref.child("marketing/$fileName").putFile(File(filePath)).onComplete;
       if (addFile.error == null) {
         print("added to Firebase Storage");
       }
       if (addFile.error == null) {
         url =
-        await addFile.ref.getDownloadURL();
+            await addFile.ref.getDownloadURL();
         await Firestore.instance
-            .collection("bussiness")
+            .collection("marketing")
             .add({"url": url, "name": fileName});
         setState(() {
           isLoading = false;
@@ -68,7 +68,7 @@ class _BussinessState extends State<Bussiness> {
 
   deleteItem(String name){
     Firestore.instance
-        .collection("bussiness")
+        .collection("marketing")
         .where("name", isEqualTo: name)
         .getDocuments()
         .then((res) {
@@ -89,7 +89,7 @@ class _BussinessState extends State<Bussiness> {
 
   Widget listBulider(){
     return StreamBuilder(
-        stream: Firestore.instance.collection('bussiness').snapshots(),
+        stream: Firestore.instance.collection('marketing').snapshots(),
         builder: (BuildContext context, AsyncSnapshot<QuerySnapshot> querySnapshot){
           if(querySnapshot.hasError){
             return Text("Some Error");
@@ -108,27 +108,27 @@ class _BussinessState extends State<Bussiness> {
                   height: 80, width: 80,),
               ],
             )):
-            ListView.builder(
+              ListView.builder(
               itemBuilder: (context, index){
                 return
                   Column(
-                    children: <Widget>[
-                      ListTile(
-                        leading: Container(
-                            child: SvgPicture.asset('assets/icons/pdf.svg',
-                              height: 50, width: 50,)),
-                        title: Text(list[index]['name']),
-                        subtitle: Text(index.toString()),
-                        onTap: (){
-                          downloadAlterDialog(context, list[index]['url']);
-                        },
-                        onLongPress: (){
-                          deleteAlterDialog(context, list[index]['name'], querySnapshot, index);
-                        },
-                      ),
-                      Divider()
-                    ],
-                  );
+                  children: <Widget>[
+                    ListTile(
+                      leading: Container(
+                          child: SvgPicture.asset('assets/icons/pdf.svg',
+                            height: 50, width: 50,)),
+                      title: Text(list[index]['name']),
+                      subtitle: Text(index.toString()),
+                      onTap: (){
+                        downloadAlterDialog(context, list[index]['url']);
+                      },
+                      onLongPress: (){
+                        deleteAlterDialog(context, list[index]['name'], querySnapshot, index);
+                      },
+                    ),
+                    Divider()
+                  ],
+                );
               },
               itemCount: list.length,
             );
@@ -177,11 +177,11 @@ class _BussinessState extends State<Bussiness> {
               });
               if (urlPDFPath != null) {
                 await Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (context) =>
-                            PdfViewPage(path: urlPDFPath)));
-              }
+                context,
+                MaterialPageRoute(
+                builder: (context) =>
+                PdfViewPage(path: urlPDFPath)));
+                }
               Navigator.pop(context);
             },
           )
@@ -217,7 +217,7 @@ class _BussinessState extends State<Bussiness> {
           }),
       body: Container(
         decoration: BoxDecoration(
-          color: Color(0xFFE4EAFF),
+          color: Color(0xFFF3F3F3),
         ),
         child: Padding(
           padding: EdgeInsets.only(left: 15, right: 15, top: 50),
@@ -225,7 +225,7 @@ class _BussinessState extends State<Bussiness> {
             children: <Widget>[
               Container(
                   padding: EdgeInsets.only(top:80, left: 120),
-                  child: Image.asset('assets/images/bussiness_big.png')
+                  child: Image.asset('assets/images/Marketing_big.png')
               ),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -252,23 +252,23 @@ class _BussinessState extends State<Bussiness> {
                     ),
                   ),
                   SizedBox(height: 16,),
-                  Text('Stock Market', style: kHeadingextStyle),
+                  Text('Digital Marketing', style: kHeadingextStyle),
                   SizedBox(height: 16,),
                   Row(
                     children: <Widget>[
                       SvgPicture.asset('assets/icons/person.svg'),
                       SizedBox(width: 5,),
-                      Text('15k'),
+                      Text('12k'),
                       SizedBox(width: 20,),
                       SvgPicture.asset('assets/icons/star.svg'),
                       SizedBox(width: 5,),
-                      Text('4.9'),
+                      Text('4.1'),
                     ],
                   ),
                   Row(
                     children: <Widget>[
-                      Text("\$100", style: kSubheadingextStyle.copyWith(fontSize: 32),),
-                      Text("\$120", style: TextStyle(color: kTextColor.withOpacity(0.5),
+                      Text("\$40", style: kSubheadingextStyle.copyWith(fontSize: 32),),
+                      Text("\$90", style: TextStyle(color: kTextColor.withOpacity(0.5),
                           decoration: TextDecoration.lineThrough),),
                     ],
                   ),

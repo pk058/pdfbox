@@ -1,148 +1,297 @@
+import 'dart:io';
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/services.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:pdfbox/constants.dart';
+import 'package:http/http.dart' as http;
+import 'package:pdfbox/screens/pdfviewer.dart';
 
-class DesignThinking extends StatelessWidget {
+class DesignThinking extends StatefulWidget {
+  @override
+  _DesignThinkingState createState() => _DesignThinkingState();
+}
+
+class _DesignThinkingState extends State<DesignThinking> {
+
+  String imageName;
+  String fileName;
+  bool isLoading = false;
+  String url;
+  Map<String, String> _paths;
+  String urlPDFPath = "";
+
+  void openFileExplorer() async {
+    try {
+      _paths = await FilePicker.getMultiFilePath(type: FileType.custom,
+          allowedExtensions: ['pdf']);
+    } on PlatformException catch (e) {
+      print("Unsupported operation" + e.toString());
+    }
+    if (!mounted) return;
+    uploadToFirebase();
+  }
+  uploadToFirebase() {
+    _paths.forEach((fileName, filePath) => {upload(fileName, filePath)});
+  }
+
+  Future upload(fileName, filePath) async {
+    if (File(filePath) != null) {
+      StorageReference ref = FirebaseStorage.instance.ref();
+      StorageTaskSnapshot addFile =
+      await ref.child("design/$fileName").putFile(File(filePath)).onComplete;
+      if (addFile.error == null) {
+        print("added to Firebase Storage");
+      }
+      if (addFile.error == null) {
+        url =
+        await addFile.ref.getDownloadURL();
+        await Firestore.instance
+            .collection("design")
+            .add({"url": url, "name": fileName});
+        setState(() {
+          isLoading = false;
+        });
+      } else {
+        print(
+            'Error from image repo ${addFile.error.toString()}');
+        throw ('This file is not an pdf');
+      }
+    }
+
+  }
+
+
+  deleteItem(String name){
+    Firestore.instance
+        .collection("design")
+        .where("name", isEqualTo: name)
+        .getDocuments()
+        .then((res) {
+      res.documents.forEach((result) {
+        FirebaseStorage.instance
+            .getReferenceFromUrl(result.data["url"])
+            .then((res) {
+          res.delete().then((res) {
+            print("Deleted!");
+          });
+        });
+      });
+    });
+  }
+
+
+
+
+  Widget listBulider(){
+    return StreamBuilder(
+        stream: Firestore.instance.collection('design').snapshots(),
+        builder: (BuildContext context, AsyncSnapshot<QuerySnapshot> querySnapshot){
+          if(querySnapshot.hasError){
+            return Text("Some Error");
+          } else if(querySnapshot.data == null){
+            return Center(child: CircularProgressIndicator());
+          }
+          else{
+            final list = querySnapshot.data.documents;
+            return list.isEmpty ? Center(child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: <Widget>[
+                Text('I am Empty..',style: kSubtitleTextSyule,),
+                SizedBox(height: 20,),
+                SvgPicture.asset('assets/icons/empty.svg',
+                  height: 80, width: 80,),
+              ],
+            )):
+            ListView.builder(
+              itemBuilder: (context, index){
+                return
+                  Column(
+                    children: <Widget>[
+                      ListTile(
+                        leading: Container(
+                            child: SvgPicture.asset('assets/icons/pdf.svg',
+                              height: 50, width: 50,)),
+                        title: Text(list[index]['name']),
+                        subtitle: Text(index.toString()),
+                        onTap: (){
+                          downloadAlterDialog(context, list[index]['url']);
+                        },
+                        onLongPress: (){
+                          deleteAlterDialog(context, list[index]['name'], querySnapshot, index);
+                        },
+                      ),
+                      Divider()
+                    ],
+                  );
+              },
+              itemCount: list.length,
+            );
+          }
+        }
+    );
+  }
+
+
+  deleteAlterDialog(BuildContext context, String name,
+      AsyncSnapshot<QuerySnapshot> querySnapshot, int index){
+    return showDialog(context: context, builder: (context){
+      return AlertDialog(
+        title: Text('Delete?', style: TextStyle(color: Colors.red),),
+        actions: <Widget>[
+          MaterialButton(
+            color: kPinkColor,
+            child: Text('Confirm'),
+            onPressed: ()async{
+              Navigator.pop(context);
+              deleteItem(name);
+              await Firestore.instance.runTransaction((Transaction myTransaction) async {
+                await myTransaction.delete(querySnapshot.data.documents[index].reference);
+              });
+            },
+          )
+        ],
+      );
+    });
+  }
+
+
+  downloadAlterDialog(BuildContext context, String url){
+    return showDialog(context: context, builder: (context){
+      return AlertDialog(
+        title: Text('Load Pdf!', style: kTitleTextStyle),
+        actions: <Widget>[
+          MaterialButton(
+            color: kPinkColor,
+            child: Text('Confirm', style: TextStyle(color: Colors.white),),
+            onPressed: ()async{
+              await getFileFromUrl(url).then((f) {
+                setState(() {
+                  urlPDFPath = f.path;
+                });
+              });
+              if (urlPDFPath != null) {
+                await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) =>
+                            PdfViewPage(path: urlPDFPath)));
+              }
+              Navigator.pop(context);
+            },
+          )
+        ],
+      );
+    });
+  }
+
+  Future<File> getFileFromUrl(String url) async {
+    try {
+      var data = await http.get(url);
+      var bytes = data.bodyBytes;
+      var dir = await getApplicationDocumentsDirectory();
+      File file = File("${dir.path}/mypdfonline.pdf");
+
+      File urlFile = await file.writeAsBytes(bytes);
+      return urlFile;
+    } catch (e) {
+      throw Exception("Error opening url file");
+    }
+  }
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      floatingActionButton: FloatingActionButton(
+          child: Icon(Icons.add, color: Colors.white,),
+          elevation: 0.0,
+          tooltip: 'Add pdf',
+          onPressed: (){
+            openFileExplorer();
+          }),
       body: Container(
         decoration: BoxDecoration(
-          color: Color(0xFFF5F4EF),
-          image: DecorationImage(image: AssetImage('assets/images/ux_big.png'),
-          alignment: Alignment.topRight,
-          )
+          color: Color(0xFFF3F3F3),
         ),
         child: Padding(
-          padding: EdgeInsets.only(left: 20, right: 20, top: 50),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          padding: EdgeInsets.only(left: 15, right: 15, top: 50),
+          child: Stack(
             children: <Widget>[
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: <Widget>[
-                IconButton(onPressed: (){
-                  Navigator.pop(context);
-                },
-                    icon: Icon(Icons.arrow_back_ios)),
-                  SvgPicture.asset('assets/icons/more-vertical.svg'),
-                ],
+              Container(
+                  padding: EdgeInsets.only(top:80, left: 120),
+                  child: Image.asset('assets/images/ux_big.png')
               ),
-              SizedBox(height: 30,),
-              ClipPath(
-                clipper: BestSellerClipper(),
-                child: Container(
-                  color: kBestSellerColor,
-                  padding: EdgeInsets.only(left: 10, top: 5, right: 20, bottom: 5),
-                  child: Text("BestSeller".toUpperCase(),
-                    style: TextStyle(fontWeight: FontWeight.w600),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: <Widget>[
+                      IconButton(onPressed: (){
+                        Navigator.pop(context);
+                      },
+                          icon: Icon(Icons.arrow_back_ios)),
+                      SvgPicture.asset('assets/icons/more-vertical.svg'),
+                    ],
                   ),
-                ),
-              ),
-              SizedBox(height: 16,),
-              Text('Design Thinking', style: kHeadingextStyle),
-              SizedBox(height: 16,),
-              Row(
-                children: <Widget>[
-                  SvgPicture.asset('assets/icons/person.svg'),
-                  SizedBox(width: 5,),
-                  Text('18k'),
-                  SizedBox(width: 20,),
-                  SvgPicture.asset('assets/icons/star.svg'),
-                  SizedBox(width: 5,),
-                  Text('4.8'),
+                  SizedBox(height: 30,),
+                  ClipPath(
+                    clipper: BestSellerClipper(),
+                    child: Container(
+                      color: kBestSellerColor,
+                      padding: EdgeInsets.only(left: 10, top: 5, right: 20, bottom: 5),
+                      child: Text("BestSeller".toUpperCase(),
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 16,),
+                  Text('Design Thinking', style: kHeadingextStyle),
+                  SizedBox(height: 16,),
+                  Row(
+                    children: <Widget>[
+                      SvgPicture.asset('assets/icons/person.svg'),
+                      SizedBox(width: 5,),
+                      Text('18k'),
+                      SizedBox(width: 20,),
+                      SvgPicture.asset('assets/icons/star.svg'),
+                      SizedBox(width: 5,),
+                      Text('4.8'),
+                    ],
+                  ),
+                  Row(
+                    children: <Widget>[
+                      Text("\$50", style: kSubheadingextStyle.copyWith(fontSize: 32),),
+                      Text("\$70", style: TextStyle(color: kTextColor.withOpacity(0.5),
+                          decoration: TextDecoration.lineThrough),),
+                    ],
+                  ),
+                  SizedBox(height: 60,),
+                  Expanded(
+                    child: Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(50),
+                          color: Colors.white
+                      ),
+                      child: Stack(
+                        children: <Widget>[
+                          Padding(
+                            padding: EdgeInsets.all(30),
+                            child: listBulider(),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
                 ],
               ),
-              Row(
-                children: <Widget>[
-                  Text("\$50", style: kSubheadingextStyle.copyWith(fontSize: 32),),
-                  Text("\$70", style: TextStyle(color: kTextColor.withOpacity(0.5),
-                  decoration: TextDecoration.lineThrough),),
-                ],
-              ),
-              SizedBox(height: 60,),
-              Expanded(
-                  child: Container(
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(50),
-                      color: Colors.white
-                    ),
-                    child: Stack(
-                      children: <Widget>[
-                        Padding(
-                          padding: EdgeInsets.all(30),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: <Widget>[
-                              Text('Course Content', style: kTitleTextStyle),
-                              SizedBox(height: 30,),
-                              CourseContent(number: '01',
-                                duration: 5.35,
-                                title: "Welcome to the Course", isDone: true),
-                              CourseContent(number: '02',
-                                  duration: 10.35,
-                                  title: "Design Thinking - Intro", isDone: true),
-                              CourseContent(number: '03',
-                                  duration: 11.00,
-                                  title: 'Coustomer Prespective', isDone: false),
-                            ],
-                          ),
-                        ),
-                        Positioned(
-                          left: 0,
-                          right: 0,
-                          bottom: 0,
-                          child: Container(
-                            padding: EdgeInsets.all(20),
-                            height: 100,
-                            width: double.infinity,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(40),
-                              boxShadow: [BoxShadow(offset: Offset(0,4), 
-                                blurRadius: 50,
-                                color: kTextColor.withOpacity(0.1)
-                              )
-                              ],
-                            ),
-                            child: Row(
-                              children: <Widget>[
-                                Container(
-                                  padding: EdgeInsets.all(14),
-                                  height: 56,
-                                  width: 80,
-                                  decoration: BoxDecoration(
-                                    color: Color(0xFFFFEDEE),
-                                    borderRadius: BorderRadius.circular(40)
-                                  ),
-                                  child: SvgPicture.asset('assets/icons/shopping-bag.svg'),
-                                ),
-                                SizedBox(width: 20,),
-                                Expanded(
-                                  child: Container(
-                                    height: 56,
-                                    width: 160,
-                                    alignment: Alignment.center,
-                                    child: Text("Add to Cart",
-                                      style: kSubtitleTextSyule.copyWith(
-                                          color: Colors.white,
-                                      fontWeight: FontWeight.bold),
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: kBlueColor,
-                                      borderRadius: BorderRadius.circular(40),
-                                    ),
-                                  ),
-                                )
-                              ],
-                            ),
-                          ),
-                        )
-                      ],
-                    ),
-                  ))
             ],
           ),
         ),
@@ -150,59 +299,6 @@ class DesignThinking extends StatelessWidget {
     );
   }
 }
-
-class CourseContent extends StatelessWidget {
-  final String number;
-  final double duration;
-  final String title;
-  final bool isDone;
-  const CourseContent({
-    Key key, this.number, this.duration, this.title, this.isDone = false,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 30),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(
-            number, style: kHeadingextStyle.copyWith(
-            color: kTextColor.withOpacity(0.15),
-            fontSize: 32,
-          ),
-          ),
-          SizedBox(width: 10,),
-          RichText(
-              text: TextSpan(
-                children: [
-                  TextSpan(
-                      text: '$duration \n',
-                      style: TextStyle(
-                          color: kTextColor.withOpacity(0.5),
-                      fontSize: 18,)),
-                  TextSpan(text: title,
-                  style: kSubtitleTextSyule.copyWith(
-                    fontWeight: FontWeight.w400,
-                    height: 1.5,
-                  )),]
-              )),
-          Spacer(),
-          Container(
-            margin: EdgeInsets.only(left: 20),
-            width: 35,
-            height: 35,
-            decoration: BoxDecoration(shape: BoxShape.circle,
-            color: isDone ? kGreenColor: kGreenColor.withOpacity(0.5)),
-            child: Icon(Icons.play_arrow, color: Colors.white,),
-          )
-        ],
-      ),
-    );
-  }
-}
-
 
 class BestSellerClipper extends CustomClipper<Path>{
   @override

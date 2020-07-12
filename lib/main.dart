@@ -4,15 +4,16 @@ import 'package:flutter/material.dart';
 import 'package:pdfbox/authServices.dart';
 import 'package:pdfbox/constants.dart';
 import 'package:pdfbox/screens/Login.dart';
+import 'package:pdfbox/screens/Market.dart';
 import 'package:pdfbox/screens/WelCome.dart';
 import 'package:pdfbox/screens/About.dart';
 import 'package:pdfbox/screens/Bussiness.dart';
 import 'package:pdfbox/screens/HomeScreen.dart';
 import 'package:pdfbox/screens/MainDrawer.dart';
-import 'package:pdfbox/screens/Marketing.dart';
 import 'package:pdfbox/screens/DesignThinking.dart';
 import 'package:pdfbox/screens/Photography.dart';
 import 'package:pdfbox/screens/Signup.dart';
+import 'package:pdfbox/screens/pdfviewer.dart';
 import 'package:pdfbox/screens/wrapper.dart';
 import 'package:provider/provider.dart';
 
@@ -44,10 +45,11 @@ class MyApp extends StatelessWidget {
           '/MainDrawer': (context) => MainDrawer(),
           '/HomeScreen': (context) => HomeScreen(),
           '/DesignThinking': (context) => DesignThinking(),
-          '/Marketing': (context) => Marketing(),
+          '/Marketing': (context) => Market(),
           '/Photography': (context) => Photography(),
           '/Bussiness': (conext) => Bussiness(),
           '/About': (context) => About(),
+          '/pfdviewer': (context) => PdfViewPage(),
         },
       ),
     );

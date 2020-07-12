@@ -68,7 +68,7 @@ class SearchBar extends SearchDelegate<Categories> {
             ],
           ),
           onTap: (){
-            Navigator.pushNamed(context, listitem.Route);
+            Navigator.pushNamed(context, listitem.route);
           },
         );
         });

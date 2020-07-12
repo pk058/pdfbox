@@ -3,9 +3,7 @@ import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:file_picker/file_picker.dart';
-
 import 'package:flutter/services.dart';
-import 'package:http/http.dart' as http;
 
 
 class StorageServices {
@@ -77,7 +75,7 @@ class StorageServices {
     return name;
   }
 
-  TileBuilder(){
+  tileBuilder(){
   final List<Widget> children = <Widget>[];
   _tasks.forEach((StorageUploadTask task) {
   final Widget tile = UploadTaskListTile(
@@ -100,7 +98,7 @@ class StorageServices {
 
   Future<void> downloadFile(StorageReference ref) async {
     final String url = await ref.getDownloadURL();
-    final http.Response downloadData = await http.get(url);
+
     final Directory systemTempDir = Directory.systemTemp;
     final File tempFile = File('${systemTempDir.path}/tmp.jpg');
     if (tempFile.existsSync()) {
@@ -109,7 +107,6 @@ class StorageServices {
     await tempFile.create();
     final StorageFileDownloadTask task = ref.writeToFile(tempFile);
     final int byteCount = (await task.future).totalByteCount;
-    var bodyBytes = downloadData.bodyBytes;
     final String name = await ref.getName();
     final String path = await ref.getPath();
     print(

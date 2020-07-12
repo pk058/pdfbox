@@ -1,9 +1,7 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:pdfbox/authServices.dart';
 import 'package:pdfbox/constants.dart';
-import 'package:pdfbox/screens/Login.dart';
 
 class SignupUser extends StatefulWidget {
   @override
@@ -11,6 +9,7 @@ class SignupUser extends StatefulWidget {
 }
 
 class _SignupUserState extends State<SignupUser> {
+
   final _formkey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
 
@@ -127,12 +126,8 @@ class _SignupUserState extends State<SignupUser> {
                                 final email = _emailController.text.toString().trim();
                                 final pass = _passController.text.toString().trim();
                                 final name = _nameController.text.toString().trim();
-                                FirebaseUser user = await _auth.signup(email, pass, name);
-                                if(user != null){
-                                  Navigator.of(context).pushReplacementNamed('/Login');
-                                } else {
-                                  print('Error');
-                                }}
+                                await _auth.signup(email, pass, name, context);
+                                }
                               },
                               child: Text('Sign up', style: TextStyle(color: Colors.white),),
                               color: kPinkColor,
@@ -212,3 +207,5 @@ class NameValidator{
     else {return null;}
   }
 }
+
+

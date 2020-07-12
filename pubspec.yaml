@@ -41,6 +41,9 @@ dependencies:
   http:
   file_picker:
   image_picker:
+  circular_profile_avatar:
+  flutter_pdfview:
+  path_provider:
 
 dev_dependencies:
   flutter_test:

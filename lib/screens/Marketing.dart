@@ -22,19 +22,22 @@ class _MarketingState extends State<Marketing> {
   String url;
   TextEditingController _nameController = TextEditingController();
 
+
+
+
   Future getImage() async {
     var image = await ImagePicker().getImage(source: ImageSource.gallery);
     setState(() {
       _image = File(image.path);
       _extension = path.basename(_image.path).split('.').last;
     });
-    nameAlterDialog(context);
+    await nameAlterDialog(context);
     uploadtoStorage();
   }
 
   deleteItem(String name){
     Firestore.instance
-        .collection("images")
+        .collection("marketing")
         .where("name", isEqualTo: name)
         .getDocuments()
         .then((res) {
@@ -51,14 +54,14 @@ class _MarketingState extends State<Marketing> {
   }
 
 
-  Future uploadtoStorage() async {
+  Future uploadtoStorage() async{
     setState(() {
       this.isLoading = true;
     });
     if (_image != null) {
       StorageReference ref = FirebaseStorage.instance.ref();
       StorageTaskSnapshot addImg =
-      await ref.child("image/$imageName.$_extension").putFile(_image).onComplete;
+      await ref.child("marketing/$imageName.$_extension").putFile(_image).onComplete;
       if (addImg.error == null) {
         print("added to Firebase Storage");
       }
@@ -66,7 +69,7 @@ class _MarketingState extends State<Marketing> {
         url =
         await addImg.ref.getDownloadURL();
         await Firestore.instance
-            .collection("images")
+            .collection("marketing")
             .add({"url": url, "name": "$imageName.$_extension"});
         setState(() {
           isLoading = false;
@@ -80,13 +83,17 @@ class _MarketingState extends State<Marketing> {
   }
 
 
+
   Widget listBulider(){
     return StreamBuilder(
-        stream: Firestore.instance.collection('images').snapshots(),
+        stream: Firestore.instance.collection('marketing').snapshots(),
         builder: (BuildContext context, AsyncSnapshot<QuerySnapshot> querySnapshot){
           if(querySnapshot.hasError){
             return Text("Some Error");
-          } else{
+          }
+          else if(querySnapshot.data == null){
+            return Text("Loading...");
+          }else{
             final list = querySnapshot.data.documents;
             return ListView.builder(
               itemBuilder: (context, index){

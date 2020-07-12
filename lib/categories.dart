@@ -2,8 +2,8 @@ class Categories{
   final String name;
   final int numofCourses;
   final String image;
-  final String Route;
-  Categories(this.name, this.numofCourses, this.image, this.Route);
+  final String route;
+  Categories(this.name, this.numofCourses, this.image, this.route);
 }
 
 List<Categories> categories = categoriesData

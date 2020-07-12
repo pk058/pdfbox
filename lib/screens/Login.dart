@@ -2,7 +2,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:pdfbox/authServices.dart';
-import 'package:pdfbox/screens/HomeScreen.dart';
 import 'package:pdfbox/constants.dart';
 
 class LoginUser extends StatefulWidget {

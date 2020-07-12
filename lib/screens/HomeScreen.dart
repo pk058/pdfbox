@@ -1,3 +1,6 @@
+import 'package:circular_profile_avatar/circular_profile_avatar.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:flutter_svg/svg.dart';
@@ -7,7 +10,34 @@ import '../Searchbar.dart';
 import '../categories.dart';
 import '../constants.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
+
+  @override
+  _HomeScreenState createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+
+  dynamic data;
+
+  Future<dynamic> getData() async {
+    FirebaseUser user = await FirebaseAuth.instance.currentUser();
+
+    final DocumentReference document =  Firestore.instance.collection("/users").document(user.uid);
+
+    await document.get().then<dynamic>(( DocumentSnapshot snapshot) async{
+       setState(() {
+         data =snapshot.data;
+        });
+    });
+  }
+
+  @override
+  initState() {
+    super.initState();
+    getData();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -26,7 +56,12 @@ class HomeScreen extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: <Widget>[
                     SvgPicture.asset('assets/icons/menu.svg'),
-                    Image.asset('assets/images/user.png')
+                    CircularProfileAvatar(
+                      data != null ? "${data['url']}" : " ",
+                      backgroundColor: Colors.transparent,
+                      elevation: 0.0,
+                      radius: 20,
+                    ),
                   ],
                 ),
                 GestureDetector(
@@ -52,7 +87,8 @@ class HomeScreen extends StatelessWidget {
                     showSearch(context: context, delegate: SearchBar(),);
                   },
                 ),
-                Text("Hey Helix", style: kHeadingextStyle,),
+                data != null ? Text("Hey ${data['displayName']} !!", style: kHeadingextStyle,)
+                    : Text("Loading....!!", style: kHeadingextStyle,),
                 Text("Find the Subject You Want", style: kSubheadingextStyle,),
                 SizedBox(height: 30),
                 Row(
@@ -85,7 +121,7 @@ class HomeScreen extends StatelessWidget {
                           Text(categories[index].name, style: kTitleTextStyle,),
                           Text("${categories[index].numofCourses} Courses",
                             style: TextStyle(color: kTextColor.withOpacity(0.5)),),
-                          Navi(route: categories[index].Route),
+                          Navi(route: categories[index].route),
                         ],
                       ),
                     );
