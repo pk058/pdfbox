@@ -11,6 +11,8 @@ class WelCome extends StatelessWidget {
         children: <Widget>[
           SizedBox(height: 150,),
           Text("Welcome to PdfBox", style: kSubtitleTextSyule,),
+          SizedBox(height: 10,),
+          Text('Made with Love by Prabhat', style: kSubtitleTextSyule,),
           SizedBox(height: 30,),
           Image.asset('assets/images/BackGround.png'),
           SizedBox(height: 30,),

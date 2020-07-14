@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -17,13 +18,30 @@ class Photography extends StatefulWidget {
 }
 
 class _PhotographyState extends State<Photography> {
-
+  final GlobalKey<ScaffoldState> _scaffoldKey = new GlobalKey<ScaffoldState>();
   String imageName;
   String fileName;
   bool isLoading = false;
+  bool isupLoading = false;
   String url;
   Map<String, String> _paths;
   String urlPDFPath = "";
+  String username;
+  String uid;
+
+  @override
+  void initState() {
+    super.initState();
+    currentuseruid();
+  }
+
+  void currentuseruid() async {
+    final FirebaseUser user = await FirebaseAuth.instance.currentUser().then((value) => value);
+    setState(() {
+      uid = user.uid;
+      username = user.displayName;
+    });
+  }
 
   void openFileExplorer() async {
     try {
@@ -34,6 +52,10 @@ class _PhotographyState extends State<Photography> {
     }
     if (!mounted) return;
     uploadToFirebase();
+    setState(() {
+      isupLoading = true;
+    });
+    uploadingshowSnackbar();
   }
   uploadToFirebase() {
     _paths.forEach((fileName, filePath) => {upload(fileName, filePath)});
@@ -43,7 +65,7 @@ class _PhotographyState extends State<Photography> {
     if (File(filePath) != null) {
       StorageReference ref = FirebaseStorage.instance.ref();
       StorageTaskSnapshot addFile =
-      await ref.child("photography/$fileName").putFile(File(filePath)).onComplete;
+      await ref.child("photography/$username/$fileName").putFile(File(filePath)).onComplete;
       if (addFile.error == null) {
         print("added to Firebase Storage");
       }
@@ -51,7 +73,7 @@ class _PhotographyState extends State<Photography> {
         url =
         await addFile.ref.getDownloadURL();
         await Firestore.instance
-            .collection("photography")
+            .collection("users").document('$uid').collection('photography')
             .add({"url": url, "name": fileName});
         setState(() {
           isLoading = false;
@@ -68,7 +90,7 @@ class _PhotographyState extends State<Photography> {
 
   deleteItem(String name){
     Firestore.instance
-        .collection("photography")
+        .collection("users").document('$uid').collection('photography')
         .where("name", isEqualTo: name)
         .getDocuments()
         .then((res) {
@@ -89,7 +111,7 @@ class _PhotographyState extends State<Photography> {
 
   Widget listBulider(){
     return StreamBuilder(
-        stream: Firestore.instance.collection('photography').snapshots(),
+        stream: Firestore.instance.collection("users").document('$uid').collection('photography').snapshots(),
         builder: (BuildContext context, AsyncSnapshot<QuerySnapshot> querySnapshot){
           if(querySnapshot.hasError){
             return Text("Some Error");
@@ -176,13 +198,13 @@ class _PhotographyState extends State<Photography> {
                 });
               });
               if (urlPDFPath != null) {
+                Navigator.pop(context);
                 await Navigator.push(
                     context,
                     MaterialPageRoute(
                         builder: (context) =>
                             PdfViewPage(path: urlPDFPath)));
               }
-              Navigator.pop(context);
             },
           )
         ],
@@ -190,7 +212,41 @@ class _PhotographyState extends State<Photography> {
     });
   }
 
+  uploadingshowSnackbar(){
+    isupLoading?   _scaffoldKey.currentState.showSnackBar(
+        SnackBar(
+          elevation: 0.0,
+          backgroundColor: Colors.white,
+          content: Row(
+            children: <Widget>[
+              CircularProgressIndicator(),
+              SizedBox(width: 20,),
+              Text("upLoading...", style: kSubtitleTextSyule,)
+            ],
+          ),
+        )): _scaffoldKey.currentState.hideCurrentSnackBar();
+  }
+  loadingshowSnackbar(){
+    isLoading ?   _scaffoldKey.currentState.showSnackBar(
+        SnackBar(
+          elevation: 0.0,
+          backgroundColor: Colors.white,
+          content: Row(
+            children: <Widget>[
+              Container(height: 30,
+                  width: 30,
+                  child: CircularProgressIndicator()),
+              SizedBox(width: 30,),
+              Text("Loading Pdf...", style: kSubtitleTextSyule,)
+            ],
+          ),
+        )): _scaffoldKey.currentState.hideCurrentSnackBar();
+  }
   Future<File> getFileFromUrl(String url) async {
+    setState(() {
+      isLoading = true;
+    });
+    loadingshowSnackbar();
     try {
       var data = await http.get(url);
       var bytes = data.bodyBytes;
@@ -198,6 +254,10 @@ class _PhotographyState extends State<Photography> {
       File file = File("${dir.path}/mypdfonline.pdf");
 
       File urlFile = await file.writeAsBytes(bytes);
+      setState(() {
+        isLoading = false;
+      });
+      loadingshowSnackbar();
       return urlFile;
     } catch (e) {
       throw Exception("Error opening url file");
@@ -208,6 +268,7 @@ class _PhotographyState extends State<Photography> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: _scaffoldKey,
       floatingActionButton: FloatingActionButton(
           child: Icon(Icons.add, color: Colors.white,),
           elevation: 0.0,

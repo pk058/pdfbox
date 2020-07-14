@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_share/flutter_share.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:pdfbox/authServices.dart';
 import 'package:pdfbox/constants.dart';
@@ -35,7 +36,7 @@ class MainDrawerState extends State<MainDrawer> {
       FirebaseUser user = await FirebaseAuth.instance.currentUser().then((value) => value);
       StorageReference ref = FirebaseStorage.instance.ref();
       StorageTaskSnapshot addImg =
-      await ref.child("userprofile/${user.uid}").putFile(_image).onComplete;
+      await ref.child("userprofile/${user.displayName}/${user.uid}").putFile(_image).onComplete;
       if (addImg.error == null) {
         print("added to Firebase Storage");
       }
@@ -77,6 +78,15 @@ class MainDrawerState extends State<MainDrawer> {
     } else {
       throw 'Could not launch $url';
     }
+  }
+
+  void _onShareTap() async{
+    await FlutterShare.share(
+        title: 'Share',
+        text: 'PdfBox'
+            'can be used to store your Pdf in Different Sections according to your subject',
+        linkUrl: 'https://appdistribution.firebase.dev/i/4e56468cbe07dfca',
+        chooserTitle: 'Share with');
   }
 
   @override
@@ -140,7 +150,7 @@ class MainDrawerState extends State<MainDrawer> {
             trailing: Icon(Icons.share),
             onTap: (){
               Navigator.pop(context);
-              Navigator.of(context).pushNamed('/About');
+              _onShareTap();
             },
           ),
           Divider(),

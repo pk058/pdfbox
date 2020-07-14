@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -17,13 +18,30 @@ class Market extends StatefulWidget {
 }
 
 class _MarketState extends State<Market> {
-
+  final GlobalKey<ScaffoldState> _scaffoldKey = new GlobalKey<ScaffoldState>();
   String imageName;
   String fileName;
-  bool isLoading = false;
+  bool isupLoading = false;
   String url;
   Map<String, String> _paths;
   String urlPDFPath = "";
+  bool isLoading = false;
+  String uid;
+  String username;
+
+  @override
+  void initState() {
+    super.initState();
+    currentuseruid();
+  }
+
+  void currentuseruid() async {
+    final FirebaseUser user = await FirebaseAuth.instance.currentUser().then((value) => value);
+    setState(() {
+      uid = user.uid;
+      username = user.displayName;
+    });
+  }
 
   void openFileExplorer() async {
     try {
@@ -34,6 +52,10 @@ class _MarketState extends State<Market> {
     }
     if (!mounted) return;
     uploadToFirebase();
+    setState(() {
+      isupLoading = true;
+    });
+    uploadingshowSnackbar(isupLoading);
   }
   uploadToFirebase() {
       _paths.forEach((fileName, filePath) => {upload(fileName, filePath)});
@@ -43,32 +65,35 @@ class _MarketState extends State<Market> {
     if (File(filePath) != null) {
       StorageReference ref = FirebaseStorage.instance.ref();
       StorageTaskSnapshot addFile =
-          await ref.child("marketing/$fileName").putFile(File(filePath)).onComplete;
+          await ref.child("marketing/$username/$fileName").putFile(File(filePath)).onComplete;
       if (addFile.error == null) {
         print("added to Firebase Storage");
       }
-      if (addFile.error == null) {
+      if (addFile.error == null){
         url =
             await addFile.ref.getDownloadURL();
         await Firestore.instance
-            .collection("marketing")
+            .collection("/users").document('$uid').collection('marketing')
             .add({"url": url, "name": fileName});
         setState(() {
-          isLoading = false;
+         isupLoading = false;
         });
       } else {
         print(
             'Error from image repo ${addFile.error.toString()}');
         throw ('This file is not an pdf');
       }
+
     }
 
   }
 
 
+
+
   deleteItem(String name){
     Firestore.instance
-        .collection("marketing")
+        .collection("users").document('$uid').collection('marketing')
         .where("name", isEqualTo: name)
         .getDocuments()
         .then((res) {
@@ -89,7 +114,7 @@ class _MarketState extends State<Market> {
 
   Widget listBulider(){
     return StreamBuilder(
-        stream: Firestore.instance.collection('marketing').snapshots(),
+        stream: Firestore.instance.collection("users").document('$uid').collection('marketing').snapshots(),
         builder: (BuildContext context, AsyncSnapshot<QuerySnapshot> querySnapshot){
           if(querySnapshot.hasError){
             return Text("Some Error");
@@ -162,7 +187,7 @@ class _MarketState extends State<Market> {
 
 
   downloadAlterDialog(BuildContext context, String url){
-    return showDialog(context: context, builder: (context){
+    return showDialog(context: _scaffoldKey.currentContext, builder: (context){
       return AlertDialog(
         title: Text('Load Pdf!', style: kTitleTextStyle),
         actions: <Widget>[
@@ -170,11 +195,12 @@ class _MarketState extends State<Market> {
             color: kPinkColor,
             child: Text('Confirm', style: TextStyle(color: Colors.white),),
             onPressed: ()async{
-              await getFileFromUrl(url).then((f) {
+             await getFileFromUrl(url).then((f) {
                 setState(() {
                   urlPDFPath = f.path;
                 });
               });
+             Navigator.pop(context);
               if (urlPDFPath != null) {
                 await Navigator.push(
                 context,
@@ -182,7 +208,6 @@ class _MarketState extends State<Market> {
                 builder: (context) =>
                 PdfViewPage(path: urlPDFPath)));
                 }
-              Navigator.pop(context);
             },
           )
         ],
@@ -190,14 +215,55 @@ class _MarketState extends State<Market> {
     });
   }
 
+ uploadingshowSnackbar(bool value){
+ value ?   _scaffoldKey.currentState.showSnackBar(
+  SnackBar(
+    elevation: 0.0,
+    backgroundColor: Colors.white,
+    content: Row(
+  children: <Widget>[
+  Container(height: 30,
+      width: 30,
+      child: CircularProgressIndicator()),
+  SizedBox(width: 20,),
+  Text("upLoading...", style: kSubtitleTextSyule,)
+  ],
+  ),
+  )): _scaffoldKey.currentState.hideCurrentSnackBar();
+}
+
+  loadingshowSnackbar(bool value){
+    value ?   _scaffoldKey.currentState.showSnackBar(
+        SnackBar(
+          elevation: 0.0,
+          backgroundColor: Colors.white,
+          content: Row(
+            children: <Widget>[
+              Container(height: 30,
+                  width: 30,
+                  child: CircularProgressIndicator()),
+              SizedBox(width: 30,),
+              Text("Loading Pdf...", style: kSubtitleTextSyule,)
+            ],
+          ),
+        )):  _scaffoldKey.currentState.hideCurrentSnackBar();
+  }
   Future<File> getFileFromUrl(String url) async {
+    setState(() {
+      isLoading = true;
+    });
+    loadingshowSnackbar(isLoading);
     try {
       var data = await http.get(url);
+      print('ddddddddddddddddddddddddddddddddddddddddddd');
       var bytes = data.bodyBytes;
       var dir = await getApplicationDocumentsDirectory();
       File file = File("${dir.path}/mypdfonline.pdf");
-
       File urlFile = await file.writeAsBytes(bytes);
+      setState(() {
+        isLoading = false;
+      });
+      loadingshowSnackbar(isLoading);
       return urlFile;
     } catch (e) {
       throw Exception("Error opening url file");
@@ -205,15 +271,19 @@ class _MarketState extends State<Market> {
   }
 
 
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: _scaffoldKey,
       floatingActionButton: FloatingActionButton(
           child: Icon(Icons.add, color: Colors.white,),
           elevation: 0.0,
           tooltip: 'Add pdf',
           onPressed: (){
             openFileExplorer();
+
           }),
       body: Container(
         decoration: BoxDecoration(

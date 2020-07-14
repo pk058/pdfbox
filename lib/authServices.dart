@@ -54,9 +54,9 @@ class AuthServices  {
    }
 
    // Current user data
-  Future<String> useruid() async{
-    var firebaseUser = await FirebaseAuth.instance.currentUser();
-    return firebaseUser.uid;
+  Future<FirebaseUser> useruid() async{
+    var user = await FirebaseAuth.instance.currentUser().then((value) => value);
+    return user;
 }
 
   String name;

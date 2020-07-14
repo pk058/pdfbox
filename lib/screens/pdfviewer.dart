@@ -58,7 +58,7 @@ class _PdfViewPageState extends State<PdfViewPage> {
               ? FloatingActionButton(
             elevation: 0.0,
             backgroundColor: kPinkColor,
-            child: Icon(Icons.keyboard_arrow_left),
+            child: Icon(Icons.keyboard_arrow_left, color: Colors.white,),
             onPressed: () {
               _currentPage -= 1;
               _pdfViewController.setPage(_currentPage);
@@ -70,7 +70,7 @@ class _PdfViewPageState extends State<PdfViewPage> {
               ? FloatingActionButton(
             elevation: 0.0,
             backgroundColor: kPinkColor,
-            child: Icon(Icons.keyboard_arrow_right),
+            child: Icon(Icons.keyboard_arrow_right, color: Colors.white,),
             onPressed: () {
               _currentPage += 1;
               _pdfViewController.setPage(_currentPage);

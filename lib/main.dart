@@ -3,11 +3,11 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:pdfbox/authServices.dart';
 import 'package:pdfbox/constants.dart';
+import 'package:pdfbox/screens/Bussiness.dart';
 import 'package:pdfbox/screens/Login.dart';
 import 'package:pdfbox/screens/Market.dart';
 import 'package:pdfbox/screens/WelCome.dart';
 import 'package:pdfbox/screens/About.dart';
-import 'package:pdfbox/screens/Bussiness.dart';
 import 'package:pdfbox/screens/HomeScreen.dart';
 import 'package:pdfbox/screens/MainDrawer.dart';
 import 'package:pdfbox/screens/DesignThinking.dart';
@@ -29,6 +29,7 @@ class MyApp extends StatelessWidget {
     return StreamProvider<FirebaseUser>.value(
       value: AuthServices().user,
       child: MaterialApp(
+        debugShowCheckedModeBanner: false,
         title: 'PdfBox',
         theme: ThemeData(
           highlightColor: kPinkColor,
